@@ -2,8 +2,8 @@
 # CRITICAL CRITERIA: SECURITY ASSURANCE
 # ==========================================
 # NEVER allow your logged-in Google token data to go to GitHub
-google_session/
-google_session/*
+# google_session/
+# google_session/*
 .env
 *.env
 
