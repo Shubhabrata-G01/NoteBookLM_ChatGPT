@@ -1,0 +1,27 @@
+# ==========================================
+# CRITICAL CRITERIA: SECURITY ASSURANCE
+# ==========================================
+# NEVER allow your logged-in Google token data to go to GitHub
+google_session/
+google_session/*
+.env
+*.env
+
+# Python compilation environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Operating System temporary components
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
