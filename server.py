@@ -60,12 +60,19 @@ async def query_notebooklm(notebook_name: str, query: str) -> str:
         page = await context.new_page()
 
         try:
-            # Navigate to the official NotebookLM live interface
-            await page.goto("https://google.com", wait_until="networkidle")
+            # Navigate directly to NotebookLM itself, not Google's generic
+            # homepage. If the session is invalid/expired, NotebookLM
+            # redirects to accounts.google.com -- checking the resulting
+            # URL is a far more reliable signal than scanning page text for
+            # words like "sign in", which can appear or be absent for
+            # unrelated reasons (locale, layout, consent dialogs, etc.)
+            # and was producing false "session expired" results even with
+            # a genuinely fresh, valid login.
+            await page.goto("https://notebooklm.google.com/", wait_until="networkidle")
+            landed_url = page.url
+            print(f"[query_notebooklm] Landed on: {landed_url}")
 
-            # Check if login page is showing up instead of the dashboard
-            content = await page.content()
-            if "signout" not in content.lower() and "sign in" in content.lower():
+            if "accounts.google.com" in landed_url or "ServiceLogin" in landed_url:
                 return "Error: Cloud session expired. Please update your google_session tokens."
 
             # Find and open your specific live notebook workspace
@@ -94,7 +101,14 @@ async def query_notebooklm(notebook_name: str, query: str) -> str:
             return latest_answer
 
         except Exception as e:
-            return f"An error occurred while scraping the live dashboard: {str(e)}"
+            # Include page URL/title in the error so failures are debuggable
+            # from the returned tool output alone, without needing another
+            # round trip to add logging.
+            try:
+                debug_info = f" (at {page.url}, title: {await page.title()})"
+            except Exception:
+                debug_info = ""
+            return f"An error occurred while scraping the live dashboard: {str(e)}{debug_info}"
         finally:
             await context.close()
 
