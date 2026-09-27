@@ -22,7 +22,7 @@ def query_notebooklm(notebook_name: str, query: str) -> str:
         # Launching Chromium with user session flags
         context = p.chromium.launch_persistent_context(
             USER_DATA_DIR,
-            headless=False,
+            headless=True,
             args=[
                 "--no-sandbox", 
                 "--disable-setuid-sandbox",
