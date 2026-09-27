@@ -7,14 +7,29 @@ from playwright.sync_api import sync_playwright
 # =====================================================================
 # 1. Initialize FastMCP instance
 # =====================================================================
-mcp = FastMCP("NotebookLM-Live-Link")
-
-# Directory where your active Google login session tokens will live
-USER_DATA_DIR = "/app/google_session" if os.environ.get("DOCKER_ENV") else "./google_session"
-
 # Your deployed Render hostname. Update this if you ever redeploy under a
 # different service name or custom domain.
 RENDER_HOSTNAME = "notebooklm-mcp-bridge-chatgpt.onrender.com"
+
+# In this SDK version (mcp 1.x), transport_security is a constructor
+# argument on FastMCP itself, not on sse_app(). Passing it here allowlists
+# the real Host header Render forwards, instead of the default localhost-only
+# allowlist that DNS-rebinding protection auto-enables and that was causing
+# every real request to be rejected with 421 Misdirected Request / Invalid
+# Host header.
+mcp = FastMCP(
+    "NotebookLM-Live-Link",
+    transport_security=TransportSecuritySettings(
+        allowed_hosts=[
+            RENDER_HOSTNAME,
+            f"{RENDER_HOSTNAME}:*",
+        ],
+        allowed_origins=["*"],
+    ),
+)
+
+# Directory where your active Google login session tokens will live
+USER_DATA_DIR = "/app/google_session" if os.environ.get("DOCKER_ENV") else "./google_session"
 
 
 @mcp.tool()
@@ -85,20 +100,10 @@ if __name__ == "__main__":
 
     print("Starting Open Source NotebookLM MCP Server on port 8080...")
 
-    # Generate the native SSE application from FastMCP, with an explicit
-    # Host-header allowlist. Without this, the SDK's DNS-rebinding
-    # protection defaults to allowing only localhost, and every real
-    # request from Render (which forwards the public hostname as Host)
-    # gets rejected with 421 Misdirected Request / Invalid Host header.
-    starlette_app = mcp.sse_app(
-        transport_security=TransportSecuritySettings(
-            allowed_hosts=[
-                RENDER_HOSTNAME,
-                f"{RENDER_HOSTNAME}:*",
-            ],
-            allowed_origins=["*"],
-        )
-    )
+    # Generate the native SSE application from FastMCP. The transport
+    # security settings (Host-header allowlist) were already configured
+    # on the FastMCP instance above; sse_app() only accepts mount_path.
+    starlette_app = mcp.sse_app()
 
     # Run the application cleanly via Uvicorn
     uvicorn.run(starlette_app, host="0.0.0.0", port=8080)
