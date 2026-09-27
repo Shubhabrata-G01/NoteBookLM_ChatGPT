@@ -1,2 +1,3 @@
-2026/09/26-01:26:31.797 3a78 Creating DB C:\Users\shubh\Documents\NotebookLM_ChatGPT\google_session\Default\Sync Data\LevelDB since it was missing.
-2026/09/26-01:26:31.819 3a78 Reusing MANIFEST C:\Users\shubh\Documents\NotebookLM_ChatGPT\google_session\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/09/27-20:26:20.470 8fe8 Reusing MANIFEST C:\Users\shubh\Documents\NotebookLM_ChatGPT\google_session\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/09/27-20:26:20.471 8fe8 Recovering log #3
+2026/09/27-20:26:20.471 8fe8 Reusing old log C:\Users\shubh\Documents\NotebookLM_ChatGPT\google_session\Default\Sync Data\LevelDB/000003.log 
