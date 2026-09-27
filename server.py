@@ -1,8 +1,8 @@
 import os
-import time
+import asyncio
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 
 # =====================================================================
 # 1. Initialize FastMCP instance
@@ -33,16 +33,22 @@ USER_DATA_DIR = "/app/google_session" if os.environ.get("DOCKER_ENV") else "./go
 
 
 @mcp.tool()
-def query_notebooklm(notebook_name: str, query: str) -> str:
+async def query_notebooklm(notebook_name: str, query: str) -> str:
     """
     Connects to the live NotebookLM interface, opens a notebook by name,
     submits a question, and returns the live text response.
     """
-    with sync_playwright() as p:
+    # Using Playwright's ASYNC API here, not the sync API. The whole server
+    # (FastMCP/Starlette/Uvicorn) runs on an asyncio event loop, and
+    # Playwright's sync API is not safe to call from inside a running
+    # asyncio loop's thread -- doing so fails before any browser
+    # interaction happens, which is the bug that was occurring here
+    # regardless of notebook name or query wording.
+    async with async_playwright() as p:
         # Launching Chromium with user session flags.
         # headless=True is required in the cloud container: Render has no
         # display server, so headless=False would crash the tool call.
-        context = p.chromium.launch_persistent_context(
+        context = await p.chromium.launch_persistent_context(
             USER_DATA_DIR,
             headless=True,
             args=[
@@ -51,37 +57,38 @@ def query_notebooklm(notebook_name: str, query: str) -> str:
                 "--disable-blink-features=AutomationControlled"
             ]
         )
-        page = context.new_page()
+        page = await context.new_page()
 
         try:
             # Navigate to the official NotebookLM live interface
-            page.goto("https://google.com", wait_until="networkidle")
+            await page.goto("https://google.com", wait_until="networkidle")
 
             # Check if login page is showing up instead of the dashboard
-            if "signout" not in page.content().lower() and "sign in" in page.content().lower():
+            content = await page.content()
+            if "signout" not in content.lower() and "sign in" in content.lower():
                 return "Error: Cloud session expired. Please update your google_session tokens."
 
             # Find and open your specific live notebook workspace
             notebook_selector = f"text={notebook_name}"
-            page.wait_for_selector(notebook_selector, timeout=10000)
-            page.click(notebook_selector)
-            page.wait_for_load_state("networkidle")
+            await page.wait_for_selector(notebook_selector, timeout=10000)
+            await page.click(notebook_selector)
+            await page.wait_for_load_state("networkidle")
 
             # Locate the chat input box using its standard placeholder attribute
             chat_input = page.locator("textarea[placeholder*='Ask a question']")
-            chat_input.wait_for(state="visible", timeout=10000)
-            chat_input.fill(query)
-            chat_input.press("Enter")
+            await chat_input.wait_for(state="visible", timeout=10000)
+            await chat_input.fill(query)
+            await chat_input.press("Enter")
 
             # Wait for NotebookLM's source generation streaming elements to stop processing
-            time.sleep(8)
+            await asyncio.sleep(8)
 
             # Grab all generated responses text panels on screen
-            responses = page.locator(".chat-response-text-class, [role='log'] div").all_text_contents()
+            responses = await page.locator(".chat-response-text-class, [role='log'] div").all_text_contents()
 
             if not responses:
                 # Fallback to extract visible paragraphs inside the active message block
-                responses = page.locator("p").all_text_contents()
+                responses = await page.locator("p").all_text_contents()
 
             latest_answer = responses[-1] if responses else "Successfully processed query, but could not capture text elements."
             return latest_answer
@@ -89,7 +96,7 @@ def query_notebooklm(notebook_name: str, query: str) -> str:
         except Exception as e:
             return f"An error occurred while scraping the live dashboard: {str(e)}"
         finally:
-            context.close()
+            await context.close()
 
 
 # =====================================================================
