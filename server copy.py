@@ -1,10 +1,9 @@
 import os
 import time
-from fastapi import FastAPI
-from mcp.server.fastmcp import FastMCP
-from mcp.server.sse import SseServerTransport
-from playwright.sync_api import sync_playwright
-from fastapi import Request
+from fastapi import FastAPI, Request  # type: ignore
+from mcp.server.fastmcp import FastMCP  # type: ignore
+from mcp.server.sse import SseServerTransport  # type: ignore
+from playwright.sync_api import sync_playwright  # type: ignore
 
 # 1. Initialize FastMCP instance
 mcp = FastMCP("NotebookLM-Live-Link")
@@ -141,5 +140,14 @@ async def handle_messages(request: Request):
         await mcp.handle_request(read_stream, write_stream)
 
 if __name__ == "__main__":
-    import uvicorn
+    # Import from the same interpreter used to run this script.
+    import sys
+    import subprocess
+
+    try:
+        import uvicorn  # type: ignore[import-not-found]
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "uvicorn"])
+        import uvicorn  # type: ignore[import-not-found]
+
     uvicorn.run(app, host="0.0.0.0", port=8080)

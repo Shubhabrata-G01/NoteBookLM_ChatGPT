@@ -1,8 +1,24 @@
 import os
 import asyncio
-from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings
-from playwright.async_api import async_playwright
+try:
+    from mcp.server.fastmcp import FastMCP  # type: ignore[import-not-found]
+except ModuleNotFoundError as exc:
+    if exc.name not in {"mcp", "mcp.server", "mcp.server.fastmcp"}:
+        raise
+    raise ModuleNotFoundError(
+        "The 'mcp' package is required. Install it in the active Python environment with: "
+        "python -m pip install 'mcp[cli]'"
+    ) from exc
+from mcp.server.transport_security import TransportSecuritySettings  # type: ignore[import-not-found]
+try:
+    from playwright.async_api import async_playwright  # type: ignore[reportMissingImports]
+except ModuleNotFoundError as exc:
+    if exc.name not in {"playwright", "playwright.async_api"}:
+        raise
+    raise ModuleNotFoundError(
+        "The 'playwright' package is required. Install it in the active Python environment with: "
+        "python -m pip install playwright"
+    ) from exc
 
 # =====================================================================
 # 1. Initialize FastMCP instance
@@ -117,7 +133,15 @@ async def query_notebooklm(notebook_name: str, query: str) -> str:
 # 2. Native FastMCP Server Deployment via sse_app
 # =====================================================================
 if __name__ == "__main__":
-    import uvicorn
+    try:
+        import uvicorn  # type: ignore[import-not-found]
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"uvicorn", "uvicorn.*"}:
+            raise
+        raise ModuleNotFoundError(
+            "The 'uvicorn' package is required. Install it in the active Python environment with: "
+            "python -m pip install uvicorn"
+        ) from exc
 
     print("Starting Open Source NotebookLM MCP Server on port 8080...")
 

@@ -1,8 +1,23 @@
 import os
 import asyncio
-from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings
-from playwright.async_api import async_playwright
+import importlib
+from mcp.server.fastmcp import FastMCP  # type: ignore[import-not-found]
+try:
+    TransportSecuritySettings = importlib.import_module(
+        "mcp.server.transport_security"
+    ).TransportSecuritySettings
+except (ImportError, AttributeError):  # Compatibility with MCP SDK versions that don't expose this module.
+    try:
+        from mcp.server.fastmcp import TransportSecuritySettings  # type: ignore[attr-defined]
+    except ImportError:
+        TransportSecuritySettings = None  # type: ignore[assignment,misc]
+try:
+    from playwright.async_api import async_playwright  # type: ignore[import-not-found]
+except ImportError as exc:
+    raise ImportError(
+        "Playwright is required. Install it with `python -m pip install playwright` "
+        "and install its browser with `python -m playwright install chromium`."
+    ) from exc
 
 # =====================================================================
 # 1. Initialize FastMCP instance
@@ -17,16 +32,17 @@ RENDER_HOSTNAME = "notebooklm-mcp-bridge-chatgpt.onrender.com"
 # allowlist that DNS-rebinding protection auto-enables and that was causing
 # every real request to be rejected with 421 Misdirected Request / Invalid
 # Host header.
-mcp = FastMCP(
-    "NotebookLM-Live-Link",
-    transport_security=TransportSecuritySettings(
-        allowed_hosts=[
-            RENDER_HOSTNAME,
-            f"{RENDER_HOSTNAME}:*",
-        ],
-        allowed_origins=["*"],
-    ),
-)
+if TransportSecuritySettings is None:
+    # Older MCP SDK versions lack transport security configuration support.
+    mcp = FastMCP("NotebookLM-Live-Link")
+else:
+    mcp = FastMCP(
+        "NotebookLM-Live-Link",
+        transport_security=TransportSecuritySettings(
+            allowed_hosts=[RENDER_HOSTNAME, f"{RENDER_HOSTNAME}:*"],
+            allowed_origins=["*"],
+        ),
+    )
 
 # Directory where your active Google login session tokens will live
 USER_DATA_DIR = "/app/google_session" if os.environ.get("DOCKER_ENV") else "./google_session"
@@ -117,7 +133,12 @@ async def query_notebooklm(notebook_name: str, query: str) -> str:
 # 2. Native FastMCP Server Deployment via sse_app
 # =====================================================================
 if __name__ == "__main__":
-    import uvicorn
+    try:
+        uvicorn = importlib.import_module("uvicorn")
+    except ImportError as exc:
+        raise ImportError(
+            "Uvicorn is required to run the server. Install it with `python -m pip install uvicorn`."
+        ) from exc
 
     print("Starting Open Source NotebookLM MCP Server on port 8080...")
 
