@@ -6,6 +6,16 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DOCKER_ENV=True
 
+# Pin Playwright's browser cache to a fixed, shared path instead of the
+# default ~/.cache/ms-playwright. The default resolves relative to whichever
+# user runs `playwright install`, which here is root (since USER appuser is
+# set later, after the install). At runtime the app runs as appuser, whose
+# own home directory cache is empty, so Chromium "isn't installed" from its
+# point of view even though root's copy exists. A fixed, explicit path
+# sidesteps whose home directory it is entirely -- this must be set before
+# both the install step below and before the app runs.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
 # Set up a secure system user to avoid running the browser as root
 RUN useradd -m -u 1000 appuser
 WORKDIR /app
@@ -21,7 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install headless Chromium and its explicit system execution libraries
+# Install headless Chromium and its explicit system execution libraries.
+# These land under PLAYWRIGHT_BROWSERS_PATH (set above), not root's home.
 RUN playwright install chromium
 RUN playwright install-deps chromium
 
@@ -29,8 +40,10 @@ RUN playwright install-deps chromium
 COPY server.py .
 COPY --chown=appuser:appuser ./google_session /app/google_session
 
-# Secure application folder permissions
-RUN chown -R appuser:appuser /app
+# Secure application folder permissions, and hand the shared browser cache
+# to appuser too -- otherwise appuser can see the directory but can't
+# execute the browser binary inside it.
+RUN chown -R appuser:appuser /app /ms-playwright
 USER appuser
 
 # Expose the internal port mapped inside your server.py file
